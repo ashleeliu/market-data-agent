@@ -16,8 +16,10 @@ con = duckdb.connect("market.duckdb")
 con.execute("""
     CREATE OR REPLACE TABLE candles_1d AS
     SELECT CAST(date AS DATE) AS date, product, open, high, low, close,
-           volume AS volume_base, volume * close AS volume_usd
+           volume AS volume_base, volume * close AS volume_usd,
+           CAST(date AS DATE) < max(CAST(date AS DATE)) OVER () AS is_complete  -- last day is still trading
     FROM read_parquet('data/*.parquet')
 """)
-print(con.execute("SELECT product, COUNT(*), MIN(date), MAX(date) FROM candles_1d GROUP BY 1").fetchall())
+print(con.execute("SELECT product, COUNT(*), MIN(date), MAX(date), COUNT(*) FILTER (WHERE NOT is_complete) AS partial "
+                  "FROM candles_1d GROUP BY 1").fetchall())
 con.close()

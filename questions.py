@@ -135,7 +135,7 @@ QUESTIONS = [
     dict(id="q38", cat="data_quality", type="date", question="What is the first date in the data for SOL?",
          gold_sql=f"SELECT min(date) FROM candles_1d WHERE {SOL}"),
     dict(id="q39", cat="data_quality", type="number",
-         question="What was BTC's close on the most recent date in the data?",
+         question="What is BTC's close in the very last row of the data (today's unfinished candle)?",
          gold_sql=f"SELECT close FROM candles_1d WHERE {BTC} ORDER BY date DESC LIMIT 1"),
     dict(id="q40", cat="data_quality", type="count",
          question="How many calendar days in 2025 are missing from the ETH data?",

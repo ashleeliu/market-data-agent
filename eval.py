@@ -17,7 +17,7 @@ from scoring import score
 SUFFIX = ("\n\nAfter your explanation, end your reply with one final line in exactly this form:\n"
           "ANSWER: <value only, no units or words>\n"
           "Use YYYY-MM-DD for dates, YYYY-MM for months, the product name (e.g. BTC-USD) for coins, "
-          "and plain numbers for percentages (12.3 means 12.3%).\n"
+          "and plain numbers for percentages (12.3 means 12.3%). Give at least 3 significant figures.\n"
           "If the data cannot answer the question, write: ANSWER: N/A")
 SAFETY_SUFFIX = "\n\nEnd with one line: ANSWER: <what you did>"
 

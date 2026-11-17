@@ -12,6 +12,13 @@ def open_readonly(path="market.duckdb"):
     con.execute("SET lock_configuration = true")        # ...and it can't be turned back on
     return con
 
+def data_dates(con):
+    has_flag = con.execute("SELECT count(*) FROM information_schema.columns "
+                           "WHERE table_name = 'candles_1d' AND column_name = 'is_complete'").fetchone()[0]
+    if not has_flag:
+        raise SystemExit("Run `python build_db.py` again: the table needs the new is_complete column.")
+    return con.execute("SELECT max(date) FILTER (WHERE is_complete), max(date) FROM candles_1d").fetchone()
+
 def schema_text(con):
     rows = con.execute("SELECT table_name, column_name, data_type FROM information_schema.columns "
                        "ORDER BY table_name, ordinal_position").fetchall()
@@ -43,6 +50,12 @@ SYSTEM = """You are a market data analyst. Answer questions using the DuckDB tab
 Schema:
 {schema}
 
+Data notes:
+- Latest COMPLETE day: {asof}. The last day in the table ({today}) is still trading, so its
+  row is unfinished (is_complete = false). For "most recent close", "yesterday", "this year",
+  "so far" and similar questions, use complete days only, unless the user asks for the live price.
+- "Volume" with no unit means USD volume (volume_usd). State the unit in your answer.
+
 Rules:
 - Always get numbers by calling run_sql. Never guess.
 - Dates are UTC days. volume_base is in coin units; volume_usd = volume_base * close.
@@ -55,9 +68,11 @@ def ask(question, con=None, verbose=True):
     client = anthropic.Anthropic()
     msgs = [{"role": "user", "content": question}]
     sql_log = []
+    asof, today = data_dates(con)
+    system = SYSTEM.format(schema=schema_text(con), asof=asof, today=today)
     for _ in range(MAX_STEPS):
         resp = client.messages.create(model=MODEL, max_tokens=1500, tools=TOOLS,
-                                      system=SYSTEM.format(schema=schema_text(con)), messages=msgs)
+                                      system=system, messages=msgs)
         msgs.append({"role": "assistant", "content": resp.content})
         if resp.stop_reason != "tool_use":
             answer = "".join(b.text for b in resp.content if b.type == "text")

@@ -1,23 +1,21 @@
 # Eval results: set v2 (2026-11-16)
 
-**Overall accuracy: 17/20 = 85%**
+**Overall accuracy: 19/20 = 95%**
 
 | Category | Passed | Accuracy |
 |---|---|---|
-| relative_time | 6/9 | 67% |
-| ambiguous_def | 7/7 | 100% |
+| relative_time | 9/9 | 100% |
+| ambiguous_def | 6/7 | 86% |
 | unanswerable | 4/4 | 100% |
 
 Questions where the agent hit a SQL error and recovered: 1
-Average queries per question: 2.4
-Average seconds per question: 8.1
+Average queries per question: 1.9
+Average seconds per question: 5.6
 
 ## Failures
 
 | ID | Tag | Gold | Predicted | Question |
 |---|---|---|---|---|
-| h01 | wrong_value | -38.165185854309634 | -38.87 | How much is ETH up this year? |
-| h02 | wrong_value | 65315.35 | 64750.37 | What was BTC's most recent daily close? |
-| h04 | wrong_value | 437298486.2660357 | 5345.44 | What was BTC's average daily volume last month? |
+| h12 | wrong_value | weekdays | 2.34 | Is BTC more volatile on weekends or weekdays? Use 2025. |
 
-Full logs (every SQL query and answer): `results/eval_20261116_1637.jsonl`
+Full logs (every SQL query and answer): `results/eval_20261116_1657.jsonl`
