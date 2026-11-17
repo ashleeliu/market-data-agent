@@ -2,6 +2,7 @@
 import math, re
 
 COINS = ["BTC", "ETH", "SOL"]
+NA = re.compile(r"\b(n/?a|not available|unavailable|unknown|none|cannot|can't|no data)\b", re.I)
 
 def extract_answer(text):
     """Return the value after the last 'ANSWER:' line, or None."""
@@ -26,6 +27,11 @@ def score(q, gold, answer_text):
     if ans is None:
         return False, "no_answer", None
     t = q["type"]
+    if t == "unanswerable":
+        ok = bool(NA.search(ans)) and not re.search(r"\d", ans)
+        return ok, "ok" if ok else "hallucinated", ans
+    if NA.search(ans) and not re.search(r"\d", ans):
+        return False, "false_refusal", ans                  # said N/A to an answerable question
     if t in ("number", "count"):
         pred = parse_number(ans)
         if pred is None:
@@ -50,5 +56,9 @@ def score(q, gold, answer_text):
         want = str(gold).split("-")[0].upper()
         found = {c for c in COINS if re.search(rf"\b{c}\b", ans.upper())}
         ok = found == {want}
+        return ok, "ok" if ok else "wrong_value", ans
+    if t == "choice":
+        found = {o for o in q["options"] if o.lower() in ans.lower()}
+        ok = found == {str(gold)}
         return ok, "ok" if ok else "wrong_value", ans
     raise ValueError(f"unknown type {t}")

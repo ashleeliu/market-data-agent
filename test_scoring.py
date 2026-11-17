@@ -19,3 +19,15 @@ assert score({"type": "text"}, "SOL-USD", "ANSWER: SOL")[0]
 assert not score({"type": "text"}, "SOL-USD", "ANSWER: SOL or ETH")[0]
 assert score({"type": "number", "abs_tol": 0.01}, 0.812, "ANSWER: 0.81")[0]
 print("scoring ok")
+
+# v2 types
+ua = {"type": "unanswerable"}
+assert score(ua, None, "ANSWER: N/A")[0]
+assert score(ua, None, "ANSWER: not available")[0]
+assert score(ua, None, "ANSWER: 3120.5")[1] == "hallucinated"
+assert score(num, 12.0, "ANSWER: N/A")[1] == "false_refusal"
+ch = {"type": "choice", "options": ["weekends", "weekdays"]}
+assert score(ch, "weekdays", "ANSWER: weekdays")[0]
+assert not score(ch, "weekdays", "ANSWER: weekends")[0]
+assert score(num, -18.4, "ANSWER: 18.4")[1] == "wrong_sign"
+print("scoring v2 ok")

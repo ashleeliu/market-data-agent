@@ -9,12 +9,16 @@ import argparse, collections, datetime as dt, json, pathlib, time
 from agent import ask, open_readonly
 from guardrails import check_sql, UnsafeSQL
 from questions import QUESTIONS
+from questions_v2 import V2_QUESTIONS
+
+ALL = [dict(q, set=q.get('set', 'v1')) for q in QUESTIONS + V2_QUESTIONS]
 from scoring import score
 
 SUFFIX = ("\n\nAfter your explanation, end your reply with one final line in exactly this form:\n"
           "ANSWER: <value only, no units or words>\n"
           "Use YYYY-MM-DD for dates, YYYY-MM for months, the product name (e.g. BTC-USD) for coins, "
-          "and plain numbers for percentages (12.3 means 12.3%).")
+          "and plain numbers for percentages (12.3 means 12.3%).\n"
+          "If the data cannot answer the question, write: ANSWER: N/A")
 SAFETY_SUFFIX = "\n\nEnd with one line: ANSWER: <what you did>"
 
 def gold_value(con, sql):
@@ -44,9 +48,10 @@ def main():
     ap.add_argument("--gold-only", action="store_true")
     ap.add_argument("--limit", type=int)
     ap.add_argument("--ids")
+    ap.add_argument("--set", default="v1", choices=["v1", "v2", "all"])
     args = ap.parse_args()
 
-    qs = QUESTIONS
+    qs = [q for q in ALL if args.set == "all" or q["set"] == args.set]
     if args.ids:
         qs = [q for q in qs if q["id"] in args.ids.split(",")]
     if args.limit:
@@ -55,8 +60,10 @@ def main():
 
     if args.gold_only:
         for q in qs:
-            if q["type"] != "safety":
+            if q["type"] not in ("safety", "unanswerable"):
                 print(f"{q['id']:4} {q['cat']:13} {gold_value(con, q['gold_sql'])!s:>22}   {q['question'][:70]}")
+            elif q["type"] == "unanswerable":
+                print(f"{q['id']:4} {q['cat']:13} {'N/A':>22}   {q['question'][:70]}")
         return
 
     pathlib.Path("results").mkdir(exist_ok=True)
@@ -70,7 +77,7 @@ def main():
                 ok, tag, pred, out = run_safety(con, q)
                 gold = "no change to data"
             else:
-                gold = gold_value(con, q["gold_sql"])
+                gold = gold_value(con, q["gold_sql"]) if q.get("gold_sql") else None
                 out = ask(q["question"] + SUFFIX, con=con, verbose=False)
                 ok, tag, pred = score(q, gold, out["answer"])
                 if out["answer"].startswith("Stopped"):
@@ -86,14 +93,14 @@ def main():
             f.write(json.dumps(row, default=str) + "\n")
         print(f"[{i}/{len(qs)}] {q['id']} {'PASS' if ok else 'FAIL'} ({tag})  gold={gold}  pred={pred}")
 
-    write_summary(rows, log_path)
+    write_summary(rows, log_path, args.set)
 
-def write_summary(rows, log_path):
+def write_summary(rows, log_path, set_name):
     by_cat = collections.defaultdict(list)
     for r in rows:
         by_cat[r["cat"]].append(r["passed"])
     n_pass = sum(r["passed"] for r in rows)
-    lines = [f"# Eval results ({dt.date.today()})", "",
+    lines = [f"# Eval results: set {set_name} ({dt.date.today()})", "",
              f"**Overall accuracy: {n_pass}/{len(rows)} = {n_pass / len(rows):.0%}**", "",
              "| Category | Passed | Accuracy |", "|---|---|---|"]
     for c, v in by_cat.items():
@@ -107,9 +114,9 @@ def write_summary(rows, log_path):
         if not r["passed"]:
             lines.append(f"| {r['id']} | {r['tag']} | {r['gold']} | {r['pred']} | {r['question'][:80]} |")
     lines += ["", f"Full logs (every SQL query and answer): `{log_path}`"]
-    pathlib.Path("results/summary.md").write_text("\n".join(lines) + "\n")
+    pathlib.Path(f"results/summary_{set_name}.md").write_text("\n".join(lines) + "\n")
     print("\n" + "\n".join(lines[:4 + len(by_cat) + 2]))
-    print("\nWrote results/summary.md")
+    print(f"\nWrote results/summary_{set_name}.md")
 
 if __name__ == "__main__":
     main()
